@@ -19,13 +19,15 @@ class PostListView(ListView):
     
     
 class PostDetailSlugView(DetailView):
-    queryset = Post.objects.all()
+    model = Post
     template_name = 'posts/post_detail.html'
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
     
-class PostDeleteView(DeleteView):
+class PostDeleteView(LoginRequiredMixin, DeleteView):
     model = Post
     template_name = 'posts/post_confirm_delete.html'
-    success_url = 'posts:post-list'
+    success_url = reverse_lazy('posts:post-list')
     
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
@@ -34,7 +36,11 @@ class PostDeleteView(DeleteView):
         return obj
     
 class PostUpdateView(LoginRequiredMixin, UpdateView):
-
+    model = Post
+    form_class = PostForm
+    template_name = 'posts/post_update.html'
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
     
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
@@ -45,7 +51,7 @@ class PostUpdateView(LoginRequiredMixin, UpdateView):
     def get_success_url(self):
         return reverse_lazy('posts:post-detail', kwargs={'slug': self.object.slug})
     
-class PostCreateView(CreateView):
+class PostCreateView(LoginRequiredMixin, CreateView):
     form_class = PostForm
     template_name = 'posts/post_create.html'
     success_url = reverse_lazy('posts:post-list')
