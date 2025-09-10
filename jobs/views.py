@@ -4,26 +4,44 @@ from django.urls import reverse_lazy
 from django.views.generic import UpdateView, DeleteView
 from django.contrib import messages
 from django.views.generic.edit import CreateView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import PermissionDenied
 from .forms import JobForm
 from .models import Job, JobApplicant
 
 # Create your views here.
 
-class JobCreateView(CreateView):
-    pass
+class JobCreateView(LoginRequiredMixin, CreateView):
+    model = Job
+    form_class = JobForm
+    template_name = 'jobs/job_create.html'
+    success_url = reverse_lazy('jobs:job_list_view')
+    
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('auth:signin')
+        if not (request.user.is_admin and request.user.is_staff):
+            raise PermissionDenied("Only admin users can create jobs.")
+        return super().dispatch(request, *args, **kwargs)
+    
+    def form_valid(self, form):
+        form.instance.user = self.request.user
+        messages.success(self.request, 'Job created successfully!')
+        return super().form_valid(form)
 def job_list_view(request):
     jobs = Job.objects.all()
     query = request.GET.get('q', None)
-    if query is not None:
+    if query is not None and query.strip():
         jobs = jobs.filter(
-            Q(job_title__icontains=query),
-            Q(job_description__icontains=query),
+            Q(job_title__icontains=query) |
+            Q(job_description__icontains=query) |
             Q(location__icontains=query)
         )
     context = {
         'jobs': jobs,
+        'query': query,
     }
-    return render(request, 'jobs/job_list.html')
+    return render(request, 'jobs/job_list.html', context)
 
 def job_detail_view(request, pk):
     try:
@@ -77,9 +95,16 @@ class JobDeleteView(DeleteView):
 
 def job_apply(request, pk):
     job = get_object_or_404(Job, pk=pk)
+    
+    if not request.user.is_authenticated:
+        return render(request, 'auth/401.html', status=401)
+    
+    # Check if user has already applied to this job
+    if JobApplicant.objects.filter(job=job, user=request.user).exists():
+        messages.error(request, 'You have already applied to this job.')
+        return redirect('jobs:job_detail_view', pk=job.pk)
+    
     if request.method == 'POST':
-        if not request.user.is_authenticated:
-            return render(request, 'auth/401.html', status=401)
         resume = request.FILES.get('resume')
         if not resume:
             messages.error(request, 'Please upload your resume.')

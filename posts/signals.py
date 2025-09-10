@@ -9,7 +9,16 @@ def unique_slug_generator(instance, new_slug=None):
     if new_slug is not None:
         slug = new_slug
     else:
-        slug = slugify(instance.title)
+        # For Post model, use first 50 characters of content for slug
+        if hasattr(instance, 'title') and instance.title:
+            slug = slugify(instance.title)
+        elif hasattr(instance, 'content') and instance.content:
+            # Use first 50 characters of content for slug
+            content_preview = instance.content[:50]
+            slug = slugify(content_preview)
+        else:
+            # Fallback to random slug
+            slug = f"post-{random_string_generator(size=8)}"
 
     Klass = instance.__class__
     qs = Klass.objects.filter(slug=slug)

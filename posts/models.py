@@ -1,8 +1,13 @@
 from django.db import models
+from django.db.models.signals import pre_save
 import random
 
+import os
+
 def get_filename_ext(filepath):
-    pass
+    base_name = os.path.basename(filepath)
+    name, ext = os.path.splitext(base_name)
+    return name, ext
 
 def upload_image_path(instance, filename):
     new_filename = random.randint(1, 151251251)
@@ -21,3 +26,12 @@ class Post(models.Model):
 
     def __str__(self):
         return f"Post by {self.user.username} on {self.created_at}"
+
+# Import and connect the signal
+from .signals import unique_slug_generator
+
+def post_pre_save_receiver(sender, instance, *args, **kwargs):
+    if not instance.slug:
+        instance.slug = unique_slug_generator(instance)
+
+pre_save.connect(post_pre_save_receiver, sender=Post)

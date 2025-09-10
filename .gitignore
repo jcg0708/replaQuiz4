@@ -1,6 +1,11 @@
 .venv
 **/migrations/
 !**/migrations/__init__.py
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
 
 db.sqlite3
 
