@@ -5,6 +5,7 @@ from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from .models import Profile, CustomUser
+from .forms import ProfileForm
 from jobs.models import Job, JobApplicant
 
 # Create your views here.
@@ -82,14 +83,35 @@ def signin_view(request):
         if user is not None:
             login(request, user)
             if not Profile.objects.filter(user=user).exists():
-                print('User does not have a profile.')
-            print('User has a profile.')
+                return redirect('auth:profile_create')
+            else:
+                return redirect('posts:post-list')
         else:
             messages.error(request, 'Invalid email or password')
     return render(request, 'auth/signin.html')
 
 def profile_create_view(request):
-    pass
+    if not request.user.is_authenticated:
+        messages.error(request, 'Please sign in first.')
+        return redirect('auth:signin')
+    
+    # Check if user already has a profile
+    if Profile.objects.filter(user=request.user).exists():
+        messages.info(request, 'You already have a profile.')
+        return redirect('auth:profile_view')
+    
+    if request.method == 'POST':
+        form = ProfileForm(request.POST, request.FILES)
+        if form.is_valid():
+            profile = form.save(commit=False)
+            profile.user = request.user
+            profile.save()
+            messages.success(request, 'Profile created successfully!')
+            return redirect('posts:post-list')
+    else:
+        form = ProfileForm()
+    
+    return render(request, 'auth/profile_create.html', {'form': form})
 def profile_view(request):
     if not request.user.is_authenticated:
         messages.error(request, 'Please sign in first.')
